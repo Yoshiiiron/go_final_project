@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
@@ -47,6 +48,8 @@ func TestTasks(t *testing.T) {
 	assert.NoError(t, err)
 
 	tasks := getTasks(t, "")
+	fmt.Println(os.Getwd())
+
 	assert.NotNil(t, tasks)
 	assert.Empty(t, tasks)
 
