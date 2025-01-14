@@ -18,7 +18,7 @@
 ### Запуск
 Чтобы запустить проект локально, выполните следующую команду в терминале, находясь в каталоге проекта:
 
-go run .
+    go run .
 
 ### Определение переменных окружения
 В проекте поддерживается настройка трёх переменных окружения:
@@ -39,7 +39,7 @@ TODO_DBFILE = "./database/scheduler.db"
 ## Запуск тестов
 Для запуска тестирования всего приложения используйте команду:
 
-go test ./tests
+    go test ./tests
 
 Некоторые параметры можно настроить в файле tests/settings.go:
     - Port — изменить порт по умолчанию.
@@ -51,8 +51,8 @@ go test ./tests
 ## Сборка образа Docker
 Для запуска Docker-контейнера сначала нужно сбилдить образ
 
-docker build . -t final-project:final-project
+    docker build . -t final-project:final-project
 
 Чтобы запустить, следует использовать следующую команду
 
-docker run -p 7540:7540 final-project:final-project
+    docker run -p 7540:7540 final-project:final-project
