@@ -78,7 +78,7 @@ func TaskHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// TasksHandler() обрабатывает GET-запросы по адресу /api/tasks
+// TasksHandler обрабатывает GET-запросы по адресу /api/tasks
 func TasksHandler(rw http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		return
@@ -118,6 +118,11 @@ func TasksHandler(rw http.ResponseWriter, r *http.Request) {
 			return
 		}
 		tasks = append(tasks, t)
+	}
+
+	// Если задач нет, вернуть пустой массив
+	if tasks == nil {
+		tasks = []Task{}
 	}
 
 	respondWithJSON(rw, struct {
