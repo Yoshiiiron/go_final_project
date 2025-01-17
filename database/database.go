@@ -11,6 +11,7 @@ import (
 )
 
 var ActualDbPath string
+var DBconn *sql.DB
 
 // InitializeDB проверяет существование базы данных, создаёт её и таблицы при необходимости.
 func InitializeDB() error {
@@ -28,7 +29,7 @@ func InitializeDB() error {
 		// Если базы данных нет, создаём её и таблицы
 		err = createAndInitializeDB(dbPath)
 		if err != nil {
-			return fmt.Errorf("Ошибка при создании базы данных: %v", err)
+			return fmt.Errorf("Ошибка при создании базы данных: %w", err)
 		}
 	}
 
@@ -40,7 +41,7 @@ func createAndInitializeDB(path string) error {
 	// Открываем или создаём базу данных
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
-		return fmt.Errorf("Не удалось открыть базу данных: %v", err)
+		return fmt.Errorf("Не удалось открыть базу данных: %w", err)
 	}
 	defer db.Close()
 
@@ -59,7 +60,7 @@ func createAndInitializeDB(path string) error {
 	// Выполняем запрос на создание таблицы
 	_, err = db.Exec(createQuery)
 	if err != nil {
-		return fmt.Errorf("Не удалось создать таблицу: %v", err)
+		return fmt.Errorf("Не удалось создать таблицу: %w", err)
 	}
 
 	return nil
@@ -69,8 +70,10 @@ func createAndInitializeDB(path string) error {
 func OpenSql() (*sql.DB, error) {
 	db, err := sql.Open("sqlite", ActualDbPath)
 	if err != nil {
-		return nil, fmt.Errorf("Не удалось открыть базу данных: %v", err)
+		return nil, fmt.Errorf("Не удалось открыть базу данных: %w", err)
 	}
 
-	return db, nil
+	DBconn = db
+
+	return DBconn, nil
 }

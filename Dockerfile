@@ -3,13 +3,14 @@ FROM golang:1.22 AS builder
 WORKDIR /app
 
 COPY . .
-RUN go mod download && CGO_ENABLED=0 GOOS=linux go build -o go_final_project .
+RUN go mod download
+RUN CGO_ENABLED=0 GOOS=linux go build -o go_final_project .
 
 FROM alpine:latest
 
 WORKDIR /root/
 
-COPY --from=builder /app/ .
+COPY --from=builder /app/go_final_project .
 
 EXPOSE 7540
 

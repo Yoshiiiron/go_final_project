@@ -38,176 +38,153 @@ func parseRepeat(repeat string) (string, int, error) {
 }
 
 // NextDate вычисляет следующую дату, соответствующую правилу repeat, начиная с текущей даты
-func NextDate(now time.Time, date string, repeat string) (string, error) {
-	if len(repeat) == 0 {
+func NextDate(now time.Time, date, repeat string) (string, error) {
+	if repeat == "" {
 		return "", fmt.Errorf("[NextDate]: repeat rule can't be empty")
 	}
 
 	nowDate, err := time.Parse("20060102", date)
 	if err != nil {
-		return "", fmt.Errorf("[NextDate]: wrong date: %v", err)
+		return "", fmt.Errorf("[NextDate]: wrong date: %w", err)
 	}
 
 	repeatError := fmt.Errorf("[NextDate]: wrong repeat format")
 
 	switch repeat[0] {
 	case 'd':
-		if days := strings.Split(repeat, " "); len(days) != 2 {
-			return "", repeatError
-		} else {
-			d, err := strconv.Atoi(days[1])
-			if err != nil {
-				return "", repeatError
-			}
-			if d > 400 {
-				return "", repeatError
-			}
-
-			nowDate = nowDate.AddDate(0, 0, d)
-			for !timeDiff(nowDate, now) {
-				nowDate = nowDate.AddDate(0, 0, d)
-			}
-			return nowDate.Format("20060102"), nil
-		}
+		return handleDailyRepeat(nowDate, now, repeat, repeatError)
 	case 'y':
-		if len(repeat) != 1 {
-			return "", repeatError
-		}
-		nowDate = nowDate.AddDate(1, 0, 0)
-		for !timeDiff(nowDate, now) {
-			nowDate = nowDate.AddDate(1, 0, 0)
-		}
-		return nowDate.Format("20060102"), nil
+		return handleYearlyRepeat(nowDate, now)
 	case 'w':
-		if days := strings.Split(repeat, " "); len(days) != 2 {
-			return "", repeatError
-		} else {
-			weekdayToOur := map[string]int{
-				"Monday":    1,
-				"Tuesday":   2,
-				"Wednesday": 3,
-				"Thursday":  4,
-				"Friday":    5,
-				"Saturday":  6,
-				"Sunday":    7,
-			}
-
-			weekdays := strings.Split(days[1], ",")
-			wds := make(map[int]struct{})
-			for _, wd := range weekdays {
-				toAdd, err := strconv.Atoi(wd)
-				if err != nil || toAdd <= 0 || toAdd > 7 {
-					return "", repeatError
-				}
-				wds[toAdd] = struct{}{}
-			}
-
-			nowDate = nowDate.AddDate(0, 0, 1)
-			for {
-				if timeDiff(nowDate, now) {
-					if _, ok := wds[weekdayToOur[nowDate.Weekday().String()]]; ok {
-						break
-					}
-				}
-				nowDate = nowDate.AddDate(0, 0, 1)
-			}
-
-			return nowDate.Format("20060102"), nil
-		}
+		return handleWeeklyRepeat(nowDate, now, repeat, repeatError)
 	case 'm':
-		if days := strings.Split(repeat, " "); len(days) != 2 && len(days) != 3 {
-			return "", repeatError
-		} else if len(days) == 2 {
-			mds := strings.Split(days[1], ",")
-			monthDays := make(map[int]struct{})
-			last, prelast := false, false
-			for _, md := range mds {
-				toAdd, err := strconv.Atoi(md)
-				if err != nil || toAdd == 0 || toAdd < -2 || toAdd > 31 {
-					return "", repeatError
-				}
-				if toAdd == -1 {
-					last = true
-				}
-				if toAdd == -2 {
-					prelast = true
-				}
-				monthDays[toAdd] = struct{}{}
-			}
-
-			nowDate = nowDate.AddDate(0, 0, 1)
-			for {
-				if timeDiff(nowDate, now) {
-
-					if _, ok := monthDays[nowDate.Day()]; ok {
-						break
-					}
-
-					if last && nowDate.Day() == daysInMonth(nowDate) {
-						break
-					}
-					if prelast && nowDate.Day() == daysInMonth(nowDate)-1 {
-						break
-					}
-				}
-				nowDate = nowDate.AddDate(0, 0, 1)
-			}
-
-			return nowDate.Format("20060102"), nil
-		} else if len(days) == 3 {
-			mds := strings.Split(days[1], ",")
-			monthDays := make(map[int]struct{})
-
-			last, prelast := false, false
-			for _, md := range mds {
-				toAdd, err := strconv.Atoi(md)
-				if err != nil || toAdd == 0 || toAdd < -2 || toAdd > 31 {
-					return "", repeatError
-				}
-				if toAdd == -1 {
-					last = true
-				}
-				if toAdd == -2 {
-					prelast = true
-				}
-				monthDays[toAdd] = struct{}{}
-			}
-
-			m := strings.Split(days[2], ",")
-			months := make(map[int]struct{})
-			for _, month := range m {
-				toAdd, err := strconv.Atoi(month)
-				if err != nil || toAdd <= 0 || toAdd > 12 {
-					return "", repeatError
-				}
-				months[toAdd] = struct{}{}
-			}
-
-			nowDate = nowDate.AddDate(0, 0, 1)
-			for {
-				if timeDiff(nowDate, now) {
-
-					if _, ok := months[int(nowDate.Month())]; ok {
-						if _, ok = monthDays[nowDate.Day()]; ok {
-							break
-						}
-						// случаи, когда нужен последний или предпоследний день(-1 или -2)
-						if last && nowDate.Day() == daysInMonth(nowDate) {
-							break
-						}
-						if prelast && nowDate.Day() == daysInMonth(nowDate)-1 {
-							break
-						}
-					}
-				}
-				nowDate = nowDate.AddDate(0, 0, 1)
-			}
-
-			return nowDate.Format("20060102"), nil
-		}
+		return handleMonthlyRepeat(nowDate, now, repeat, repeatError)
 	default:
 		return "", repeatError
 	}
+}
 
-	return "", nil
+func handleDailyRepeat(nowDate, now time.Time, repeat string, repeatError error) (string, error) {
+	days := strings.Split(repeat, " ")
+	if len(days) != 2 {
+		return "", repeatError
+	}
+
+	d, err := strconv.Atoi(days[1])
+	if err != nil || d > 400 {
+		return "", repeatError
+	}
+
+	nowDate = nowDate.AddDate(0, 0, d)
+	for !timeDiff(nowDate, now) {
+		nowDate = nowDate.AddDate(0, 0, d)
+	}
+	return nowDate.Format("20060102"), nil
+}
+
+func handleYearlyRepeat(nowDate, now time.Time) (string, error) {
+	nowDate = nowDate.AddDate(1, 0, 0)
+	for !timeDiff(nowDate, now) {
+		nowDate = nowDate.AddDate(1, 0, 0)
+	}
+	return nowDate.Format("20060102"), nil
+}
+
+func handleWeeklyRepeat(nowDate, now time.Time, repeat string, repeatError error) (string, error) {
+	days := strings.Split(repeat, " ")
+	if len(days) != 2 {
+		return "", repeatError
+	}
+
+	weekdays := parseWeekdays(days[1], repeatError)
+	if weekdays == nil {
+		return "", repeatError
+	}
+
+	nowDate = nowDate.AddDate(0, 0, 1)
+	for {
+		if timeDiff(nowDate, now) && weekdays[int(nowDate.Weekday())] {
+			break
+		}
+		nowDate = nowDate.AddDate(0, 0, 1)
+	}
+	return nowDate.Format("20060102"), nil
+}
+
+func handleMonthlyRepeat(nowDate, now time.Time, repeat string, repeatError error) (string, error) {
+	days := strings.Split(repeat, " ")
+	if len(days) < 2 || len(days) > 3 {
+		return "", repeatError
+	}
+
+	monthDays, last, prelast := parseMonthDays(days[1], repeatError)
+	if monthDays == nil {
+		return "", repeatError
+	}
+
+	months := parseMonths(days, repeatError)
+	if len(days) == 3 && months == nil {
+		return "", repeatError
+	}
+
+	nowDate = nowDate.AddDate(0, 0, 1)
+	for {
+		if timeDiff(nowDate, now) {
+			if (len(months) == 0 || months[int(nowDate.Month())]) &&
+				(monthDays[nowDate.Day()] || (last && nowDate.Day() == daysInMonth(nowDate)) ||
+					(prelast && nowDate.Day() == daysInMonth(nowDate)-1)) {
+				break
+			}
+		}
+		nowDate = nowDate.AddDate(0, 0, 1)
+	}
+	return nowDate.Format("20060102"), nil
+}
+
+func parseWeekdays(input string, repeatError error) map[int]bool {
+	weekdays := make(map[int]bool)
+	for _, day := range strings.Split(input, ",") {
+		wd, err := strconv.Atoi(day)
+		if err != nil || wd <= 0 || wd > 7 {
+			return nil
+		}
+		weekdays[wd] = true
+	}
+	return weekdays
+}
+
+func parseMonthDays(input string, repeatError error) (map[int]bool, bool, bool) {
+	monthDays := make(map[int]bool)
+	last, prelast := false, false
+
+	for _, day := range strings.Split(input, ",") {
+		md, err := strconv.Atoi(day)
+		if err != nil || md < -2 || md > 31 {
+			return nil, false, false
+		}
+		if md == -1 {
+			last = true
+		} else if md == -2 {
+			prelast = true
+		} else {
+			monthDays[md] = true
+		}
+	}
+	return monthDays, last, prelast
+}
+
+func parseMonths(days []string, repeatError error) map[int]bool {
+	if len(days) != 3 {
+		return nil
+	}
+
+	months := make(map[int]bool)
+	for _, month := range strings.Split(days[2], ",") {
+		m, err := strconv.Atoi(month)
+		if err != nil || m < 1 || m > 12 {
+			return nil
+		}
+		months[m] = true
+	}
+	return months
 }

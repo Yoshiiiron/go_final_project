@@ -22,39 +22,39 @@ func taskByIdHandler(rw http.ResponseWriter, r *http.Request) {
 	id := r.FormValue("id")
 	if len(id) == 0 {
 		rw.Write([]byte(`{"error":"не указан идентификатор"}`))
+		rw.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	dB, err := db.OpenSql()
-
-	if err != nil {
-		rw.Write([]byte(fmt.Sprintf(`{"error":"%v"}`, fmt.Errorf("ошибка работы с БД %v", err).Error())))
-		return
-	}
-	defer dB.Close()
+	db := db.DBconn
+	defer db.Close()
 
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
-		rw.Write([]byte(fmt.Sprintf(`{"error":"%v"}`, fmt.Errorf("ошибка работы с id %v", err).Error())))
+		rw.Write([]byte(fmt.Sprintf(`{"error":"ошибка работы с id %w"}`, err)))
+		rw.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	query := `SELECT id, date, title, comment, repeat FROM scheduler WHERE id = :id`
-	row := dB.QueryRow(query, sql.Named("id", idInt))
+	row := db.QueryRow(query, sql.Named("id", idInt))
 
 	var task Task
 	err = row.Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			rw.Write([]byte(`{"error":"запись не найдена"}`))
+			rw.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		rw.Write([]byte(fmt.Sprintf(`{"error":"%v"}`, fmt.Errorf("ошибка работы с БД %v", err).Error())))
+		rw.Write([]byte(fmt.Sprintf(`{"error":"ошибка работы с БД %w"}`, err)))
+		rw.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	data, err := json.Marshal(task)
 	if err != nil {
-		rw.Write([]byte(fmt.Sprintf(`{"error":"%v"}`, fmt.Errorf("ошибка сериализации %v", err).Error())))
+		rw.Write([]byte(fmt.Sprintf(`{"error":"ошибка сериализации %w"}`, err)))
+		rw.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -70,8 +70,8 @@ func updateTaskHandler(rw http.ResponseWriter, r *http.Request) {
 	var t Task
 	err := decoder.Decode(&t)
 	if err != nil {
-		rw.Write([]byte(fmt.Sprintf(`{"error":"%v"}`,
-			fmt.Errorf("ошибка десериализации %v", err).Error())))
+		rw.Write([]byte(fmt.Sprintf(`{"error":"ошибка десериализации %w"}`, err)))
+		rw.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	defer r.Body.Close()
@@ -80,6 +80,7 @@ func updateTaskHandler(rw http.ResponseWriter, r *http.Request) {
 
 	if len(title) == 0 {
 		rw.Write([]byte(`{"error":"заголовок не может быть пустым"}`))
+		rw.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -90,6 +91,7 @@ func updateTaskHandler(rw http.ResponseWriter, r *http.Request) {
 	dateTo, err := time.Parse("20060102", date)
 	if err != nil {
 		rw.Write([]byte(`{"error":"некорректная дата"}`))
+		rw.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -98,6 +100,7 @@ func updateTaskHandler(rw http.ResponseWriter, r *http.Request) {
 		newDate, err = NextDate(time.Now(), date, repeat)
 		if err != nil {
 			rw.Write([]byte(fmt.Sprintf(`{"error":"%v"}`, err.Error())))
+			rw.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		if timeDiff(time.Now(), dateTo) {
@@ -110,12 +113,7 @@ func updateTaskHandler(rw http.ResponseWriter, r *http.Request) {
 		date = time.Now().Format("20060102")
 	}
 
-	database, err := db.OpenSql()
-	if err != nil {
-		rw.Write([]byte(fmt.Sprintf(`{"error":"%v"}`, fmt.Errorf("ошибка работы с БД %v", err).Error())))
-		return
-	}
-
+	database := db.DBconn
 	defer database.Close()
 
 	query := `UPDATE scheduler SET date = :date, title = :title, comment = :comment, repeat = :repeat WHERE id = :id`
@@ -127,14 +125,17 @@ func updateTaskHandler(rw http.ResponseWriter, r *http.Request) {
 		sql.Named("id", id),
 	)
 	if err != nil {
-		rw.Write([]byte(fmt.Sprintf(`{"error":"%v"}`, fmt.Errorf("ошибка работы с БД %v", err).Error())))
+		rw.Write([]byte(fmt.Sprintf(`{"error":"работы с БД %w"}`, err)))
+		rw.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	if rows, err := res.RowsAffected(); err != nil {
-		rw.Write([]byte(fmt.Sprintf(`{"error":"%v"}`, fmt.Errorf("ошибка работы с БД %v", err).Error())))
+		rw.Write([]byte(fmt.Sprintf(`{"error":"работы с БД %w"}`, err)))
+		rw.WriteHeader(http.StatusInternalServerError)
 		return
 	} else if rows == 0 {
 		rw.Write([]byte(`{"error":"задача не найдена"}`))
+		rw.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -149,28 +150,27 @@ func deleteTaskHandler(rw http.ResponseWriter, r *http.Request) {
 	id := r.FormValue("id")
 	if len(id) == 0 {
 		rw.Write([]byte(`{"error":"не указан идентификатор"}`))
+		rw.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	dB, err := db.OpenSql()
-
-	if err != nil {
-		rw.Write([]byte(fmt.Sprintf(`{"error":"%v"}`, fmt.Errorf("ошибка работы с БД %v", err).Error())))
-		return
-	}
-	defer dB.Close()
+	db := db.DBconn
+	defer db.Close()
 
 	query := `DELETE FROM scheduler WHERE id = :id`
-	res, err := dB.Exec(query, sql.Named("id", id))
+	res, err := db.Exec(query, sql.Named("id", id))
 	if err != nil {
-		rw.Write([]byte(fmt.Sprintf(`{"error":"%v"}`, fmt.Errorf("ошибка работы с БД %v", err).Error())))
+		rw.Write([]byte(fmt.Sprintf(`{"error":"ошибка работы с БД %w"}`, err)))
+		rw.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	if rows, err := res.RowsAffected(); err != nil {
-		rw.Write([]byte(fmt.Sprintf(`{"error":"%v"}`, fmt.Errorf("ошибка работы с БД %v", err).Error())))
+		rw.Write([]byte(fmt.Sprintf(`{"error":"ошибка работы с БД %w"}`, err)))
+		rw.WriteHeader(http.StatusInternalServerError)
 		return
 	} else if rows == 0 {
 		rw.Write([]byte(`{"error":"задача не найдена"}`))
+		rw.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -186,8 +186,8 @@ func addTaskHandler(rw http.ResponseWriter, r *http.Request) {
 	var t Task
 	err := decoder.Decode(&t)
 	if err != nil {
-		rw.Write([]byte(fmt.Sprintf(`{"error":"%v"}`,
-			fmt.Errorf("ошибка десериализации %v", err).Error())))
+		rw.Write([]byte(fmt.Sprintf(`{"error":"ошибка десериализации %w"}`, err)))
+		rw.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	defer r.Body.Close()
@@ -196,6 +196,7 @@ func addTaskHandler(rw http.ResponseWriter, r *http.Request) {
 
 	if len(title) == 0 {
 		rw.Write([]byte(`{"error":"заголовок не может быть пустым"}`))
+		rw.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -206,6 +207,7 @@ func addTaskHandler(rw http.ResponseWriter, r *http.Request) {
 	dateTo, err := time.Parse("20060102", date)
 	if err != nil {
 		rw.Write([]byte(`{"error":"некорректная дата"}`))
+		rw.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -214,6 +216,7 @@ func addTaskHandler(rw http.ResponseWriter, r *http.Request) {
 		newDate, err = NextDate(time.Now(), date, repeat)
 		if err != nil {
 			rw.Write([]byte(fmt.Sprintf(`{"error":"%v"}`, err.Error())))
+			rw.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		if timeDiff(time.Now(), dateTo) {
@@ -228,7 +231,8 @@ func addTaskHandler(rw http.ResponseWriter, r *http.Request) {
 
 	database, err := db.OpenSql()
 	if err != nil {
-		rw.Write([]byte(fmt.Sprintf(`{"error":"%v"}`, fmt.Errorf("ошибка работы с БД %v", err).Error())))
+		rw.Write([]byte(fmt.Sprintf(`{"error":"ошибка работы с БД %w"}`, err)))
+		rw.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -242,12 +246,14 @@ func addTaskHandler(rw http.ResponseWriter, r *http.Request) {
 		sql.Named("repeat", repeat),
 	)
 	if err != nil {
-		rw.Write([]byte(fmt.Sprintf(`{"error":"%v"}`, fmt.Errorf("ошибка работы с БД %v", err).Error())))
+		rw.Write([]byte(fmt.Sprintf(`{"error":"ошибка работы с БД %w"}`, err)))
+		rw.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	idToAdd, err := res.LastInsertId()
 	if err != nil {
-		rw.Write([]byte(fmt.Sprintf(`{"error":"%v"}`, fmt.Errorf("ошибка работы с БД %v", err).Error())))
+		rw.Write([]byte(fmt.Sprintf(`{"error":"ошибка работы с БД %w"}`, err)))
+		rw.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 

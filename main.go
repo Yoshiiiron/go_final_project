@@ -26,10 +26,13 @@ func startServer() {
 
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("ошибка загрузки .env файла")
+		log.Fatal("ошибка загрузки .env файла: ", err)
 	}
 
-	db.InitializeDB()
+	err = db.InitializeDB()
+	if err != nil {
+		log.Fatal("ошибка при инициализации ДБ: ", err)
+	}
 
 	http.Handle("/", http.FileServer(http.Dir(webDir)))
 	http.HandleFunc("/api/nextdate", handlers.NextDateHandler)

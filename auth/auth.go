@@ -50,12 +50,13 @@ func Auth(next http.HandlerFunc) http.HandlerFunc {
 			valid, err := validateToken(jwtString)
 			if err != nil {
 				valid = false
+				fmt.Println("Не валидный токен: ", err)
 			}
 
 			// Если токен недействителен, возвращаем ошибку аутентификации 401
 			if !valid {
 				// Логирование ошибки аутентификации
-				fmt.Println("Ошибка аутентификации: токен недействителен")
+				fmt.Println("Ошибка аутентификации: ", err)
 				http.Error(w, "Аутентификация требуется", http.StatusUnauthorized)
 				return
 			}
