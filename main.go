@@ -33,6 +33,7 @@ func startServer() {
 	if err != nil {
 		log.Fatal("ошибка при инициализации ДБ: ", err)
 	}
+	defer db.DBconn.Close()
 
 	http.Handle("/", http.FileServer(http.Dir(webDir)))
 	http.HandleFunc("/api/nextdate", handlers.NextDateHandler)

@@ -3,7 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
-	db "final_project/database"
+	"final_project/database"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -26,7 +26,7 @@ func taskByIdHandler(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db := db.DBconn
+	db := database.DBconn
 	defer db.Close()
 
 	idInt, err := strconv.Atoi(id)
@@ -113,11 +113,11 @@ func updateTaskHandler(rw http.ResponseWriter, r *http.Request) {
 		date = time.Now().Format("20060102")
 	}
 
-	database := db.DBconn
-	defer database.Close()
+	db := database.DBconn
+	defer db.Close()
 
 	query := `UPDATE scheduler SET date = :date, title = :title, comment = :comment, repeat = :repeat WHERE id = :id`
-	res, err := database.Exec(query,
+	res, err := db.Exec(query,
 		sql.Named("date", date),
 		sql.Named("title", title),
 		sql.Named("comment", comment),
@@ -154,7 +154,7 @@ func deleteTaskHandler(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db := db.DBconn
+	db := database.DBconn
 	defer db.Close()
 
 	query := `DELETE FROM scheduler WHERE id = :id`
@@ -229,17 +229,12 @@ func addTaskHandler(rw http.ResponseWriter, r *http.Request) {
 		date = time.Now().Format("20060102")
 	}
 
-	database, err := db.OpenSql()
-	if err != nil {
-		rw.Write([]byte(fmt.Sprintf(`{"error":"ошибка работы с БД %w"}`, err)))
-		rw.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	db := database.DBconn
 
-	defer database.Close()
+	defer db.Close()
 
 	query := `INSERT INTO scheduler (date, title, comment, repeat) VALUES (:date, :title, :comment, :repeat)`
-	res, err := database.Exec(query,
+	res, err := db.Exec(query,
 		sql.Named("date", date),
 		sql.Named("title", title),
 		sql.Named("comment", comment),

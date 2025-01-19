@@ -10,7 +10,7 @@ FROM alpine:latest
 
 WORKDIR /root/
 
-COPY --from=builder /app/go_final_project .
+COPY --from=builder /app .
 
 EXPOSE 7540
 

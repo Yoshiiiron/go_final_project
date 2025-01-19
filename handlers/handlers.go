@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	db "final_project/database"
+	"final_project/database"
 	"fmt"
 	"net/http"
 	"os"
@@ -89,7 +89,7 @@ func TasksHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json; charset=UTF-8")
 
 	toSearch := r.FormValue("search")
-	db := db.DBconn
+	db := database.DBconn
 	defer db.Close()
 
 	var (
@@ -174,11 +174,7 @@ func TaskDoneHandler(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db, err := db.OpenSql()
-	if err != nil {
-		handledbError(rw, err)
-		return
-	}
+	db := database.DBconn
 	defer db.Close()
 
 	idInt, err := strconv.Atoi(id)

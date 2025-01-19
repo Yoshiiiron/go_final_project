@@ -15,24 +15,34 @@ var DBconn *sql.DB
 
 // InitializeDB проверяет существование базы данных, создаёт её и таблицы при необходимости.
 func InitializeDB() error {
-	// Используем путь из переменной окружения или из тестового файла по умолчанию
+	// Используем путь из переменной окружения или тестового файла
 	dbPath := tests.DBFile
 	if path := os.Getenv("TODO_DBFILE"); path != "" {
 		dbPath = path
 	}
-
 	ActualDbPath = dbPath
 
-	// Проверяем существование файла базы данных
+	// Проверяем существование базы данных
 	_, err := os.Stat(dbPath)
 	if os.IsNotExist(err) {
-		// Если базы данных нет, создаём её и таблицы
-		err = createAndInitializeDB(dbPath)
-		if err != nil {
+		// Создаём базу данных, если её нет
+		if err := createAndInitializeDB(dbPath); err != nil {
 			return fmt.Errorf("Ошибка при создании базы данных: %w", err)
 		}
 	}
 
+	// Открываем соединение с базой данных
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		return fmt.Errorf("Не удалось открыть базу данных: %w", err)
+	}
+
+	// Проверяем соединение
+	if err := db.Ping(); err != nil {
+		return fmt.Errorf("Ошибка проверки соединения с базой данных: %w", err)
+	}
+
+	DBconn = db
 	return nil
 }
 
@@ -64,16 +74,4 @@ func createAndInitializeDB(path string) error {
 	}
 
 	return nil
-}
-
-// OpenSql открывает соединение с базой данных и возвращает объект sql.DB.
-func OpenSql() (*sql.DB, error) {
-	db, err := sql.Open("sqlite", ActualDbPath)
-	if err != nil {
-		return nil, fmt.Errorf("Не удалось открыть базу данных: %w", err)
-	}
-
-	DBconn = db
-
-	return DBconn, nil
 }
