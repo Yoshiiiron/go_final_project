@@ -27,7 +27,6 @@ func taskByIdHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	db := database.DBconn
-	defer db.Close()
 
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
@@ -114,7 +113,6 @@ func updateTaskHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	db := database.DBconn
-	defer db.Close()
 
 	query := `UPDATE scheduler SET date = :date, title = :title, comment = :comment, repeat = :repeat WHERE id = :id`
 	res, err := db.Exec(query,
@@ -155,7 +153,6 @@ func deleteTaskHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	db := database.DBconn
-	defer db.Close()
 
 	query := `DELETE FROM scheduler WHERE id = :id`
 	res, err := db.Exec(query, sql.Named("id", id))
@@ -230,8 +227,6 @@ func addTaskHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	db := database.DBconn
-
-	defer db.Close()
 
 	query := `INSERT INTO scheduler (date, title, comment, repeat) VALUES (:date, :title, :comment, :repeat)`
 	res, err := db.Exec(query,

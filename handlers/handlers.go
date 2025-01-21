@@ -90,7 +90,6 @@ func TasksHandler(rw http.ResponseWriter, r *http.Request) {
 
 	toSearch := r.FormValue("search")
 	db := database.DBconn
-	defer db.Close()
 
 	var (
 		query string
@@ -175,7 +174,6 @@ func TaskDoneHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	db := database.DBconn
-	defer db.Close()
 
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
